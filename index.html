@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PillTracker - Controle de Medicamentos</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --primary-hover: #6366f1;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .auth-container {
+            position: relative;
+            width: 100%;
+            max-width: 850px;
+            min-height: 600px;
+            background: #fff;
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 45px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .form-box {
+            position: absolute;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: all .6s ease-in-out;
+            padding: 0 40px;
+        }
+        .login-box {
+            left: 0;
+            z-index: 2;
+        }
+        .register-box {
+            left: 0;
+            opacity: 0;
+            z-index: 1;
+        }
+        .overlay-container {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 50%;
+            height: 100%;
+            overflow: hidden;
+            transition: transform .6s ease-in-out;
+            z-index: 100;
+        }
+        .overlay {
+            background: linear-gradient(to right, var(--primary-hover), var(--primary-color));
+            color: #fff;
+            position: relative;
+            left: -100%;
+            height: 100%;
+            width: 200%;
+            transform: translateX(0);
+            transition: transform .6s ease-in-out;
+        }
+        .overlay-panel {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 0 40px;
+            text-align: center;
+            top: 0;
+            height: 100%;
+            width: 50%;
+            transform: translateX(0);
+            transition: transform .6s ease-in-out;
+        }
+        .overlay-left {
+            transform: translateX(-20%);
+        }
+        .overlay-right {
+            right: 0;
+            transform: translateX(0);
+        }
+        .auth-container.right-panel-active .login-box {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        .auth-container.right-panel-active .register-box {
+            transform: translateX(100%);
+            opacity: 1;
+            z-index: 5;
+            animation: show .6s;
+        }
+        @keyframes show {
+            0%, 49.99% { opacity: 0; z-index: 1; }
+            50%, 100% { opacity: 1; z-index: 5; }
+        }
+        .auth-container.right-panel-active .overlay-container {
+            transform: translateX(-100%);
+        }
+        .auth-container.right-panel-active .overlay {
+            transform: translateX(50%);
+        }
+        .auth-container.right-panel-active .overlay-left {
+            transform: translateX(0);
+        }
+        .auth-container.right-panel-active .overlay-right {
+            transform: translateX(20%);
+        }
+        .btn-ghost {
+            background-color: transparent;
+            border: 2px solid #fff;
+            color: #fff;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            transition: background-color 0.3s;
+        }
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+        .password-reqs { font-size: 0.75rem; color: #6b7280; }
+        .password-reqs li.valid { color: #10b981; }
+        .password-reqs li.valid .req-icon-svg { stroke: #10b981; }
+        .password-reqs li { display: flex; align-items: center; gap: 0.25rem; }
+        
+        #app-container { display: none; }
+        .sidebar-icon { width: 24px; height: 24px; }
+        .main-content > .content-section { display: none; }
+        .main-content > .content-section.active { display: block; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.flex { display: flex; }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 600px;
+        }
+        @keyframes slide-down {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .tab-button.active {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background-color: #eef2ff;
+        }
+        /* Estilo para a barra de progresso */
+        .progress-bar {
+            background-color: #e5e7eb;
+            border-radius: 9999px;
+            overflow: hidden;
+            height: 0.75rem;
+        }
+        .progress-bar-inner {
+            background-color: var(--primary-color);
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <!-- Seção de Autenticação -->
+    <div id="auth-section" class="w-full p-4">
+        <div class="auth-container mx-auto" id="authContainer">
+            <!-- Formulário de Registro -->
+            <div class="form-box register-box">
+                <form id="registerForm" class="flex flex-col items-center justify-center h-full text-center w-full">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-4">Criar Conta</h1>
+                    <input type="text" id="registerName" placeholder="Nome" class="bg-gray-100 border-none rounded-lg w-full py-3 px-4 mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+                    <input type="email" id="registerEmail" placeholder="Email" class="bg-gray-100 border-none rounded-lg w-full py-3 px-4 mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+                    <input type="password" id="registerPassword" placeholder="Senha" class="bg-gray-100 border-none rounded-lg w-full py-3 px-4 mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+                    <input type="password" id="registerConfirmPassword" placeholder="Confirmar Senha" class="bg-gray-100 border-none rounded-lg w-full py-3 px-4 mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+                    
+                    <ul class="password-reqs text-left w-full mb-4">
+                        <li id="req-length">
+                            <span class="req-icon">
+                                <svg class="req-icon-svg w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            Mínimo 8 caracteres
+                        </li>
+                        <li id="req-upper">
+                           <span class="req-icon">
+                                <svg class="req-icon-svg w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            Uma letra maiúscula
+                        </li>
+                        <li id="req-lower">
+                            <span class="req-icon">
+                                <svg class="req-icon-svg w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            Uma letra minúscula
+                        </li>
+                        <li id="req-special">
+                           <span class="req-icon">
+                                <svg class="req-icon-svg w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            Um caractere especial
+                        </li>
+                        <li id="req-match">
+                            <span class="req-icon">
+                                <svg class="req-icon-svg w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            As senhas coincidem
+                        </li>
+                    </ul>
+
+                    <button type="submit" class="btn-primary text-white font-bold uppercase rounded-full py-3 px-8 transition-transform transform hover:scale-105">Registrar</button>
+                    <p id="registerError" class="text-red-500 text-sm mt-3 h-4"></p>
+                </form>
+            </div>
+            <!-- Formulário de Login -->
+            <div class="form-box login-box">
+                <form id="loginForm" class="flex flex-col items-center justify-center h-full text-center w-full">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-2">Bem-vindo(a) de volta!</h1>
+                    <span class="text-gray-500 mb-4">Faça login para continuar</span>
+                    <input type="text" id="loginEmail" placeholder="Email ou Nome de Usuário" class="bg-gray-100 border-none rounded-lg w-full py-3 px-4 mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+                    <input type="password" id="loginPassword" placeholder="Senha" class="bg-gray-100 border-none rounded-lg w-full py-3 px-4 mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+                    <button type="submit" class="btn-primary text-white font-bold uppercase rounded-full py-3 px-8 transition-transform transform hover:scale-105">Entrar</button>
+                    <p id="loginError" class="text-red-500 text-sm mt-3 h-4"></p>
+                </form>
+            </div>
+            <!-- Overlay -->
+            <div class="overlay-container" id="overlayCon">
+                <div class="overlay">
+                    <div class="overlay-panel overlay-left">
+                        <h1 class="text-3xl font-bold mb-4">Já tem uma conta?</h1>
+                        <p class="mb-6 px-4">Faça login para acessar seus agendamentos e continuar cuidando da sua saúde.</p>
+                        <button class="btn-ghost font-bold uppercase rounded-full py-3 px-8 transition-transform transform hover:scale-105" id="signIn">Entrar</button>
+                    </div>
+                    <div class="overlay-panel overlay-right">
+                        <h1 class="text-3xl font-bold mb-4">Olá!</h1>
+                        <p class="mb-6 px-4">É novo por aqui? Crie sua conta e comece a gerenciar seus medicamentos de forma simples e eficaz.</p>
+                        <button class="btn-ghost font-bold uppercase rounded-full py-3 px-8 transition-transform transform hover:scale-105" id="signUp">Criar Conta</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container Principal da Aplicação -->
+    <div id="app-container" class="h-screen w-screen bg-gray-100">
+        <div class="flex h-full">
+            <!-- Sidebar -->
+            <aside class="w-64 bg-white shadow-md flex flex-col">
+                <div class="p-6 text-2xl font-bold text-indigo-600 border-b">
+                    PillTracker
+                </div>
+                <nav class="flex-1 p-4 space-y-2" id="main-nav">
+                    <a href="#dashboard" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-indigo-50">
+                        <i data-lucide="home" class="sidebar-icon mr-3"></i> Dashboard
+                    </a>
+                    <a href="#agendamentos" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-indigo-50">
+                        <i data-lucide="calendar-clock" class="sidebar-icon mr-3"></i> Agendamentos
+                    </a>
+                    <a href="#pacientes" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-indigo-50">
+                        <i data-lucide="users" class="sidebar-icon mr-3"></i> Pacientes
+                    </a>
+                    <a href="#medicamentos" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-indigo-50">
+                        <i data-lucide="pill" class="sidebar-icon mr-3"></i> Medicamentos
+                    </a>
+                    <a href="#relatorios" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-indigo-50">
+                        <i data-lucide="line-chart" class="sidebar-icon mr-3"></i> Relatórios
+                    </a>
+                    <a href="#admin" id="admin-nav-link" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-indigo-50 hidden">
+                        <i data-lucide="shield" class="sidebar-icon mr-3"></i> Painel Admin
+                    </a>
+                </nav>
+                <div class="p-4 border-t">
+                    <div id="user-profile" class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-lg" id="user-initials"></div>
+                        <div class="ml-3">
+                            <p class="font-semibold text-gray-800" id="user-name"></p>
+                            <p class="text-sm text-gray-500" id="user-role"></p>
+                        </div>
+                    </div>
+                    <button id="logoutButton" class="w-full flex items-center justify-center p-3 rounded-lg text-red-600 hover:bg-red-50">
+                        <i data-lucide="log-out" class="sidebar-icon mr-3"></i> Sair
+                    </button>
+                </div>
+            </aside>
+            <!-- Conteúdo Principal -->
+            <main class="flex-1 p-8 overflow-y-auto">
+                <div class="main-content">
+                    <!-- Seção Dashboard -->
+                    <section id="dashboard" class="content-section">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-6">Dashboard</h1>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="dashboard-stats">
+                           <!-- Cards de estatísticas serão inseridos aqui -->
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800 mt-8 mb-4">Próximas Doses</h2>
+                        <div class="bg-white p-6 rounded-xl shadow-md" id="proximas-doses-list">
+                            <!-- Lista de próximas doses será inserida aqui -->
+                        </div>
+                    </section>
+                    <!-- Seção Agendamentos -->
+                    <section id="agendamentos" class="content-section">
+                         <div class="flex justify-between items-center mb-6">
+                            <h1 class="text-3xl font-bold text-gray-800">Agendamentos</h1>
+                            <button id="open-agendamento-modal" class="btn-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center">
+                                <i data-lucide="plus" class="w-5 h-5 mr-2"></i> Novo Agendamento
+                            </button>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="border-b">
+                                        <th class="p-4">Paciente</th>
+                                        <th class="p-4">Medicamento</th>
+                                        <th class="p-4">Data/Hora</th>
+                                        <th class="p-4">Status</th>
+                                        <th class="p-4">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="agendamentos-table-body">
+                                    <!-- Linhas da tabela de agendamentos -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                    <!-- Seção Pacientes -->
+                    <section id="pacientes" class="content-section">
+                        <div class="flex justify-between items-center mb-6">
+                            <h1 class="text-3xl font-bold text-gray-800">Pacientes</h1>
+                            <button id="open-paciente-modal" class="btn-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center">
+                                <i data-lucide="plus" class="w-5 h-5 mr-2"></i> Novo Paciente
+                            </button>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="border-b">
+                                        <th class="p-4">Nome</th>
+                                        <th class="p-4">Telefone</th>
+                                        <th class="p-4">Data de Nascimento</th>
+                                        <th class="p-4">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pacientes-table-body">
+                                    <!-- Linhas da tabela de pacientes -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                    <!-- Seção Medicamentos -->
+                    <section id="medicamentos" class="content-section">
+                        <div class="flex justify-between items-center mb-6">
+                            <h1 class="text-3xl font-bold text-gray-800">Medicamentos</h1>
+                            <button id="open-medicamento-modal" class="btn-primary text-white font-semibold py-2 px-4 rounded-lg flex items-center">
+                                <i data-lucide="plus" class="w-5 h-5 mr-2"></i> Novo Medicamento
+                            </button>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="border-b">
+                                        <th class="p-4">Nome</th>
+                                        <th class="p-4">Dosagem</th>
+                                        <th class="p-4">Instruções</th>
+                                        <th class="p-4">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="medicamentos-table-body">
+                                    <!-- Linhas da tabela de medicamentos -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                    <!-- Seção Relatórios -->
+                    <section id="relatorios" class="content-section">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-6">Relatórios de Adesão</h1>
+                         <div class="bg-white p-6 rounded-xl shadow-md" id="relatorios-content">
+                            <!-- Conteúdo dos relatórios -->
+                         </div>
+                    </section>
+                    <!-- Seção Admin -->
+                    <section id="admin" class="content-section">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-6">Painel de Administração</h1>
+                        <!-- Abas de Navegação do Admin -->
+                        <div class="border-b border-gray-200 mb-6">
+                            <nav class="-mb-px flex space-x-6" id="admin-tabs">
+                                <button data-target="admin-users" class="admin-tab-button py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">Gerenciar Usuários</button>
+                                <button data-target="admin-roles" class="admin-tab-button py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">Gerenciar Cargos</button>
+                                <button data-target="admin-permissions" class="admin-tab-button py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">Permissões</button>
+                                <button data-target="admin-logs" class="admin-tab-button py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">Log de Atividades</button>
+                            </nav>
+                        </div>
+
+                        <!-- Conteúdo das Abas do Admin -->
+                        <div id="admin-content">
+                            <div id="admin-users" class="admin-tab-content">
+                                <div class="bg-white p-6 rounded-xl shadow-md">
+                                    <table class="w-full text-left">
+                                        <thead>
+                                            <tr class="border-b">
+                                                <th class="p-4">Nome</th>
+                                                <th class="p-4">Email</th>
+                                                <th class="p-4">Cargo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="users-table-body">
+                                            <!-- Linhas da tabela de usuários -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div id="admin-roles" class="admin-tab-content hidden">
+                                <div class="bg-white p-6 rounded-xl shadow-md">
+                                    <div class="flex gap-4 mb-4">
+                                        <input type="text" id="new-role-name" placeholder="Nome do novo cargo" class="flex-grow bg-gray-100 border-none rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                                        <button id="add-role-button" class="btn-primary text-white font-semibold py-2 px-4 rounded-lg">Adicionar Cargo</button>
+                                    </div>
+                                    <ul id="roles-list" class="space-y-2">
+                                        <!-- Lista de cargos -->
+                                    </ul>
+                                </div>
+                            </div>
+                            <div id="admin-permissions" class="admin-tab-content hidden">
+                                <div class="bg-white p-6 rounded-xl shadow-md" id="permissions-content">
+                                     <!-- Conteúdo das permissões será gerado aqui -->
+                                </div>
+                            </div>
+                            <div id="admin-logs" class="admin-tab-content hidden">
+                                <div class="bg-white p-6 rounded-xl shadow-md">
+                                    <table class="w-full text-left">
+                                        <thead>
+                                            <tr class="border-b">
+                                                <th class="p-4">Data/Hora</th>
+                                                <th class="p-4">Usuário</th>
+                                                <th class="p-4">Ação</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="logs-table-body">
+                                            <!-- Linhas da tabela de logs -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- Modal para Pacientes -->
+    <div id="paciente-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="paciente-modal-title" class="text-2xl font-bold mb-6">Novo Paciente</h2>
+            <form id="paciente-form">
+                <input type="hidden" id="paciente-id">
+                <div class="mb-4">
+                    <label for="paciente-nome" class="block text-gray-700 mb-2">Nome</label>
+                    <input type="text" id="paciente-nome" class="w-full p-3 bg-gray-100 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+                </div>
+                <div class="mb-4">
+                    <label for="paciente-telefone" class="block text-gray-700 mb-2">Telefone</label>
+                    <input type="tel" id="paciente-telefone" class="w-full p-3 bg-gray-100 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <div class="mb-6">
+                    <label for="paciente-nascimento" class="block text-gray-700 mb-2">Data de Nascimento</label>
+                    <input type="date" id="paciente-nascimento" class="w-full p-3 bg-gray-100 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button type="button" id="cancel-paciente-modal" class="py-2 px-6 bg-gray-200 rounded-lg font-semibold">Cancelar</button>
+                    <button type="submit" class="py-2 px-6 btn-primary text-white rounded-lg font-semibold">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Medicamentos -->
+    <div id="medicamento-modal" class="modal">
+         <div class="modal-content">
+            <h2 id="medicamento-modal-title" class="text-2xl font-bold mb-6">Novo Medicamento</h2>
+            <form id="medicamento-form">
+                <input type="hidden" id="medicamento-id">
+                <div class="mb-4">
+                    <label for="medicamento-nome" class="block text-gray-700 mb-2">Nome do Medicamento</label>
+                    <input type="text" id="medicamento-nome" class="w-full p-3 bg-gray-100 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+                </div>
+                <div class="mb-4">
+                    <label for="medicamento-dosagem" class="block text-gray-700 mb-2">Dosagem (ex: 500mg, 1 comprimido)</label>
+                    <input type="text" id="medicamento-dosagem" class="w-full p-3 bg-gray-100 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <div class="mb-6">
+                    <label for="medicamento-instrucoes" class="block text-gray-700 mb-2">Instruções</label>
+                    <textarea id="medicamento-instrucoes" rows="3" class="w-full p-3 bg-gray-100 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400"></textarea>
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button type="button" id="cancel-medicamento-modal" class="py-2 px-6 bg-gray-200 rounded-lg font-semibold">Cancelar</button>
+                    <button type="submit" class="py-2 px-6 btn-primary text-white rounded-lg font-semibold">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Agendamentos -->
+    <div id="agendamento-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="agendamento-modal-title" class="text-2xl font-bold mb-6">Novo Agendamento</h2>
+            <form id="agendamento-form">
+                <input type="hidden" id="agendamento-id">
+                <div class="mb-4">
+                    <label for="agendamento-paciente" class="block text-gray-700 mb-2">Paciente</label>
+                    <select id="agendamento-paciente" class="w-full p-3 bg-gray-100 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400" required></select>
+                </div>
+                 <div class="mb-4">
+                    <label for="agendamento-medicamento" class="block text-gray-700 mb-2">Medicamento</label>
+                    <select id="agendamento-medicamento" class="w-full p-3 bg-gray-100 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400" required></select>
+                </div>
+                <div class="mb-6 grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="agendamento-data" class="block text-gray-700 mb-2">Data</label>
+                        <input type="date" id="agendamento-data" class="w-full p-3 bg-gray-100 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+                    </div>
+                     <div>
+                        <label for="agendamento-hora" class="block text-gray-700 mb-2">Hora</label>
+                        <input type="time" id="agendamento-hora" class="w-full p-3 bg-gray-100 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button type="button" id="cancel-agendamento-modal" class="py-2 px-6 bg-gray-200 rounded-lg font-semibold">Cancelar</button>
+                    <button type="submit" class="py-2 px-6 btn-primary text-white rounded-lg font-semibold">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/lucide@0.378.0"></script>
+    <script>
+    window.addEventListener('load', () => {
+        // Elementos da UI
+        const authSection = document.getElementById('auth-section');
+        const appContainer = document.getElementById('app-container');
+        const authContainer = document.getElementById('authContainer');
+        const signUpButton = document.getElementById('signUp');
+        const signInButton = document.getElementById('signIn');
+        const logoutButton = document.getElementById('logoutButton');
+
+        // Formulários
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const pacienteForm = document.getElementById('paciente-form');
+        const medicamentoForm = document.getElementById('medicamento-form');
+        const agendamentoForm = document.getElementById('agendamento-form');
+
+        // Senhas do formulário de registro
+        const registerPassword = document.getElementById('registerPassword');
+        const confirmPassword = document.getElementById('registerConfirmPassword');
+        
+        // Requisitos da senha
+        const reqs = {
+            length: document.getElementById('req-length'),
+            upper: document.getElementById('req-upper'),
+            lower: document.getElementById('req-lower'),
+            special: document.getElementById('req-special'),
+            match: document.getElementById('req-match')
+        };
+
+        // ---- Lógica de Armazenamento Local (localStorage) ----
+        const db = {
+            get: (key) => JSON.parse(localStorage.getItem(key)) || [],
+            set: (key, data) => localStorage.setItem(key, JSON.stringify(data)),
+            setSession: (user) => sessionStorage.setItem('currentUser', JSON.stringify(user)),
+            getSession: () => JSON.parse(sessionStorage.getItem('currentUser')),
+            clearSession: () => sessionStorage.removeItem('currentUser'),
+            init: () => {
+                if (db.get('users').length === 0) {
+                    const defaultUsers = [
+                        { id: 'admin-user', name: 'Gustavo', email: 'admin@pilltracker.com', password: 'admin', role: 'Admin' },
+                        { id: 'common-user', name: 'Usuario Comum', email: 'user@example.com', password: 'Password1!', role: 'User' }
+                    ];
+                    db.set('users', defaultUsers);
+                }
+                if (db.get('roles').length === 0) {
+                    const defaultRoles = [
+                        { id: 'admin-role', name: 'Admin' },
+                        { id: 'user-role', name: 'User' }
+                    ];
+                    db.set('roles', defaultRoles);
+                }
+                 if (!localStorage.getItem('permissions')) {
+                    const defaultPermissions = {
+                        'Admin': ['*'], // Acesso total
+                        'User': [
+                            'dashboard:view',
+                            'agendamentos:view', 'agendamentos:create', 'agendamentos:update', 'agendamentos:delete',
+                            'pacientes:view', 'pacientes:create', 'pacientes:update', 'pacientes:delete',
+                            'medicamentos:view', 'medicamentos:create', 'medicamentos:update', 'medicamentos:delete',
+                            'relatorios:view'
+                        ]
+                    };
+                    db.set('permissions', defaultPermissions);
+                }
+                if (db.get('logs').length === 0) { db.set('logs', []); }
+                if (db.get('pacientes').length === 0) {
+                    db.set('pacientes', [
+                        { id: 'p1', nome: 'João Silva', telefone: '11987654321', nascimento: '1980-05-15'},
+                        { id: 'p2', nome: 'Maria Oliveira', telefone: '21912345678', nascimento: '1975-10-20'}
+                    ]);
+                }
+                if (db.get('medicamentos').length === 0) {
+                     db.set('medicamentos', [
+                        { id: 'm1', nome: 'Paracetamol', dosagem: '750mg', instrucoes: 'Tomar 1 a cada 8 horas se houver dor.'},
+                        { id: 'm2', nome: 'Losartana', dosagem: '50mg', instrucoes: 'Tomar 1 pela manhã.'}
+                    ]);
+                }
+                if(db.get('agendamentos').length === 0) {
+                    const now = new Date();
+                    const tomorrow = new Date(now);
+                    tomorrow.setDate(now.getDate() + 1);
+                    db.set('agendamentos', [
+                        { id: 'a1', pacienteId: 'p1', medicamentoId: 'm2', dateTime: `${now.toISOString().split('T')[0]}T08:00`, tomado: true },
+                        { id: 'a2', pacienteId: 'p1', medicamentoId: 'm1', dateTime: `${now.toISOString().split('T')[0]}T22:00`, tomado: false },
+                        { id: 'a3', pacienteId: 'p2', medicamentoId: 'm2', dateTime: `${tomorrow.toISOString().split('T')[0]}T09:00`, tomado: false }
+                    ]);
+                }
+            }
+        };
+
+        const addLog = (userEmail, action) => {
+            const logs = db.get('logs');
+            const newLog = { timestamp: new Date().toISOString(), user: userEmail, action: action };
+            logs.unshift(newLog);
+            db.set('logs', logs.slice(0, 100));
+        };
+
+        // ---- Lógica Principal e de Autenticação ----
+        
+        function loadMainApp(user) {
+            authSection.style.display = 'none';
+            appContainer.style.display = 'block';
+            
+            setupUserProfile(user);
+            setupNavigation();
+            renderAllContent();
+            lucide.createIcons();
+            navigateTo(window.location.hash || '#dashboard');
+        }
+
+        function loadAuthScreen() {
+            authSection.style.display = 'flex';
+            appContainer.style.display = 'none';
+            setupAuthListeners();
+        }
+
+        function setupAuthListeners() {
+            if (!authContainer) return;
+
+            const newSignUpButton = signUpButton.cloneNode(true);
+            signUpButton.parentNode.replaceChild(newSignUpButton, signUpButton);
+            newSignUpButton.addEventListener('click', () => authContainer.classList.add('right-panel-active'));
+
+            const newSignInButton = signInButton.cloneNode(true);
+            signInButton.parentNode.replaceChild(newSignInButton, signInButton);
+            newSignInButton.addEventListener('click', () => authContainer.classList.remove('right-panel-active'));
+
+            registerPassword.addEventListener('input', validatePassword);
+            confirmPassword.addEventListener('input', validatePassword);
+
+            registerForm.addEventListener('submit', handleRegister);
+            loginForm.addEventListener('submit', handleLogin);
+        }
+
+        const validatePassword = () => {
+            const pass = registerPassword.value;
+            const confirmPass = confirmPassword.value;
+            const validations = {
+                length: pass.length >= 8,
+                upper: /[A-Z]/.test(pass),
+                lower: /[a-z]/.test(pass),
+                special: /[!@#$%^&*(),.?":{}|<>]/.test(pass),
+                match: pass && pass === confirmPass
+            };
+            let allValid = true;
+            for (const key in validations) {
+                const reqElement = reqs[key];
+                const iconSpan = reqElement.querySelector('.req-icon');
+                if (validations[key]) {
+                    reqElement.classList.add('valid');
+                    iconSpan.innerHTML = `<svg class="req-icon-svg w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                } else {
+                    reqElement.classList.remove('valid');
+                    iconSpan.innerHTML = `<svg class="req-icon-svg w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                    allValid = false;
+                }
+            }
+            return allValid;
+        };
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = registerPassword.value;
+            const errorEl = document.getElementById('registerError');
+            if (!validatePassword()) {
+                errorEl.textContent = 'Por favor, cumpra todos os requisitos da senha.';
+                return;
+            }
+            const users = db.get('users');
+            if (users.find(user => user.email === email)) {
+                errorEl.textContent = 'Este e-mail já está cadastrado.';
+                return;
+            }
+            const newUser = { id: `user-${Date.now()}`, name, email, password, role: 'User' };
+            users.push(newUser);
+            db.set('users', users);
+            addLog(email, 'Usuário registrado.');
+            loginUser(newUser);
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const loginInput = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('loginError');
+            const users = db.get('users');
+
+            let user = users.find(u => u.email === loginInput || u.name === loginInput);
+
+            if (user && user.password === password) {
+                addLog(user.email, 'Login realizado.');
+                loginUser(user);
+            } else {
+                errorEl.textContent = 'Usuário ou senha inválidos.';
+            }
+        }
+
+        function loginUser(user) {
+            db.setSession(user);
+            loadMainApp(user);
+        }
+
+        logoutButton.addEventListener('click', () => {
+            const user = db.getSession();
+            if (user) { addLog(user.email, 'Logout realizado.'); }
+            db.clearSession();
+            location.reload();
+        });
+
+        // ---- Funções do App Principal ----
+        function renderAllContent(){
+            renderDashboard();
+            renderPacientesTable();
+            renderMedicamentosTable();
+            renderAgendamentosTable();
+            renderReports();
+            const user = db.getSession();
+            if(user && user.role === 'Admin') {
+                renderUsersTable();
+                renderRolesList();
+                renderPermissions();
+                renderLogsTable();
+            }
+        }
+
+        function setupUserProfile(user) {
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('user-role').textContent = user.role;
+            document.getElementById('user-initials').textContent = user.name.charAt(0).toUpperCase();
+            if(user.role === 'Admin') {
+                document.getElementById('admin-nav-link').classList.remove('hidden');
+            } else {
+                 document.getElementById('admin-nav-link').classList.add('hidden');
+            }
+        }
+        
+        function setupNavigation() {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    navigateTo(link.getAttribute('href'));
+                });
+            });
+            const adminTabs = document.querySelectorAll('.admin-tab-button');
+            adminTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const targetId = tab.dataset.target;
+                    adminTabs.forEach(t => t.classList.remove('active', 'border-indigo-500', 'text-indigo-600'));
+                    tab.classList.add('active', 'border-indigo-500', 'text-indigo-600');
+                    document.querySelectorAll('.admin-tab-content').forEach(content => content.classList.add('hidden'));
+                    document.getElementById(targetId).classList.remove('hidden');
+                    
+                    if (targetId === 'admin-roles') renderRolesList();
+                    if (targetId === 'admin-permissions') renderPermissions();
+                });
+            });
+            if (adminTabs.length > 0) adminTabs[0].click();
+        }
+
+        function navigateTo(hash) {
+            document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
+            const targetSection = document.querySelector(hash);
+            if (targetSection) {
+                targetSection.classList.add('active');
+            } else {
+                document.getElementById('dashboard').classList.add('active');
+            }
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('bg-indigo-100', 'text-indigo-600', 'font-semibold');
+                if (link.getAttribute('href') === hash) {
+                    link.classList.add('bg-indigo-100', 'text-indigo-600', 'font-semibold');
+                }
+            });
+            window.location.hash = hash;
+            
+            // Re-render dynamic content on navigation
+            if(hash === '#dashboard') renderDashboard();
+            if(hash === '#relatorios') renderReports();
+        }
+
+        // ---- Dashboard ----
+        function renderDashboard() {
+            const dosesList = document.getElementById('proximas-doses-list');
+            if(!dosesList) return;
+            
+            const agendamentos = db.get('agendamentos');
+            const pacientes = db.get('pacientes');
+            const medicamentos = db.get('medicamentos');
+            
+            const proximasDoses = agendamentos
+                .filter(a => !a.tomado && new Date(a.dateTime) > new Date())
+                .sort((a,b) => new Date(a.dateTime) - new Date(b.dateTime))
+                .slice(0, 5);
+
+            if (proximasDoses.length === 0) {
+                dosesList.innerHTML = `<p class="text-gray-500">Nenhuma dose futura agendada.</p>`;
+                return;
+            }
+
+            dosesList.innerHTML = proximasDoses.map(dose => {
+                const paciente = pacientes.find(p => p.id === dose.pacienteId);
+                const medicamento = medicamentos.find(m => m.id === dose.medicamentoId);
+                if (!paciente || !medicamento) return '';
+                const dataHora = new Date(dose.dateTime);
+                return `
+                    <div class="flex items-center justify-between p-3 border-b last:border-b-0">
+                        <div>
+                            <p class="font-semibold text-gray-800">${medicamento.nome} (${medicamento.dosagem})</p>
+                            <p class="text-sm text-gray-600">Para: ${paciente.nome}</p>
+                        </div>
+                        <div class="text-right">
+                             <p class="font-semibold text-indigo-600">${dataHora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</p>
+                             <p class="text-sm text-gray-500">${dataHora.toLocaleDateString('pt-BR')}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ---- Relatórios ----
+        function renderReports() {
+            const content = document.getElementById('relatorios-content');
+            if(!content) return;
+
+            const pacientes = db.get('pacientes');
+            const agendamentos = db.get('agendamentos');
+
+            if(pacientes.length === 0) {
+                content.innerHTML = `<p class="text-gray-500">Nenhum paciente cadastrado para gerar relatórios.</p>`;
+                return;
+            }
+
+            content.innerHTML = '<div class="space-y-6"></div>';
+            const container = content.querySelector('.space-y-6');
+
+            pacientes.forEach(paciente => {
+                const agendamentosPaciente = agendamentos.filter(a => a.pacienteId === paciente.id);
+                const total = agendamentosPaciente.length;
+                const tomados = agendamentosPaciente.filter(a => a.tomado).length;
+                const percentual = total > 0 ? ((tomados / total) * 100).toFixed(1) : 0;
+                
+                const colorClass = percentual >= 80 ? 'bg-green-500' : percentual >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+
+                container.insertAdjacentHTML('beforeend', `
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <p class="font-bold text-gray-800">${paciente.nome}</p>
+                            <p class="text-sm font-semibold text-gray-600">${tomados} de ${total} doses (${percentual}%)</p>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-bar-inner ${colorClass}" style="width: ${percentual}%;"></div>
+                        </div>
+                    </div>
+                `);
+            });
+        }
+
+
+        // ---- CRUDs ----
+        const pacienteModal = document.getElementById('paciente-modal');
+        document.getElementById('open-paciente-modal').addEventListener('click', () => {
+            pacienteForm.reset();
+            document.getElementById('paciente-id').value = '';
+            document.getElementById('paciente-modal-title').textContent = 'Novo Paciente';
+            pacienteModal.classList.add('flex');
+        });
+        document.getElementById('cancel-paciente-modal').addEventListener('click', () => pacienteModal.classList.remove('flex'));
+        pacienteForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('paciente-id').value;
+            const paciente = {
+                id: id || `p-${Date.now()}`,
+                nome: document.getElementById('paciente-nome').value,
+                telefone: document.getElementById('paciente-telefone').value,
+                nascimento: document.getElementById('paciente-nascimento').value,
+            };
+            const pacientes = db.get('pacientes');
+            if (id) {
+                const index = pacientes.findIndex(p => p.id === id);
+                pacientes[index] = paciente;
+                addLog(db.getSession().email, `Editou o paciente ${paciente.nome}.`);
+            } else {
+                pacientes.push(paciente);
+                addLog(db.getSession().email, `Adicionou o paciente ${paciente.nome}.`);
+            }
+            db.set('pacientes', pacientes);
+            renderPacientesTable();
+            pacienteModal.classList.remove('flex');
+        });
+
+        function renderPacientesTable() {
+            const tableBody = document.getElementById('pacientes-table-body');
+            if(!tableBody) return;
+            tableBody.innerHTML = '';
+            db.get('pacientes').forEach(p => {
+                tableBody.insertAdjacentHTML('beforeend', `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-4">${p.nome}</td>
+                        <td class="p-4">${p.telefone}</td>
+                        <td class="p-4">${p.nascimento ? new Date(p.nascimento + 'T00:00:00').toLocaleDateString('pt-BR') : ''}</td>
+                        <td class="p-4">
+                            <button class="edit-paciente p-2 text-blue-500 hover:text-blue-700" data-id="${p.id}"><i data-lucide="edit"></i></button>
+                            <button class="delete-paciente p-2 text-red-500 hover:text-red-700" data-id="${p.id}"><i data-lucide="trash-2"></i></button>
+                        </td>
+                    </tr>`);
+            });
+            lucide.createIcons();
+            document.querySelectorAll('.edit-paciente').forEach(btn => btn.addEventListener('click', (e) => editPaciente(e.currentTarget.dataset.id)));
+            document.querySelectorAll('.delete-paciente').forEach(btn => btn.addEventListener('click', (e) => deletePaciente(e.currentTarget.dataset.id)));
+        }
+
+        function editPaciente(id) {
+            const paciente = db.get('pacientes').find(p => p.id === id);
+            if(!paciente) return;
+            document.getElementById('paciente-id').value = paciente.id;
+            document.getElementById('paciente-nome').value = paciente.nome;
+            document.getElementById('paciente-telefone').value = paciente.telefone;
+            document.getElementById('paciente-nascimento').value = paciente.nascimento;
+            document.getElementById('paciente-modal-title').textContent = 'Editar Paciente';
+            pacienteModal.classList.add('flex');
+        }
+
+        function deletePaciente(id) {
+            if(confirm('Tem certeza que deseja excluir este paciente?')) {
+                let pacientes = db.get('pacientes');
+                const paciente = pacientes.find(p => p.id === id);
+                if(!paciente) return;
+                pacientes = pacientes.filter(p => p.id !== id);
+                db.set('pacientes', pacientes);
+                addLog(db.getSession().email, `Excluiu o paciente ${paciente.nome}.`);
+                renderPacientesTable();
+            }
+        }
+        
+        const medicamentoModal = document.getElementById('medicamento-modal');
+        document.getElementById('open-medicamento-modal').addEventListener('click', () => {
+            medicamentoForm.reset();
+            document.getElementById('medicamento-id').value = '';
+            document.getElementById('medicamento-modal-title').textContent = 'Novo Medicamento';
+            medicamentoModal.classList.add('flex');
+        });
+        document.getElementById('cancel-medicamento-modal').addEventListener('click', () => medicamentoModal.classList.remove('flex'));
+        medicamentoForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('medicamento-id').value;
+            const medicamento = {
+                id: id || `m-${Date.now()}`,
+                nome: document.getElementById('medicamento-nome').value,
+                dosagem: document.getElementById('medicamento-dosagem').value,
+                instrucoes: document.getElementById('medicamento-instrucoes').value,
+            };
+            const medicamentos = db.get('medicamentos');
+            if (id) {
+                const index = medicamentos.findIndex(m => m.id === id);
+                medicamentos[index] = medicamento;
+                addLog(db.getSession().email, `Editou o medicamento ${medicamento.nome}.`);
+            } else {
+                medicamentos.push(medicamento);
+                addLog(db.getSession().email, `Adicionou o medicamento ${medicamento.nome}.`);
+            }
+            db.set('medicamentos', medicamentos);
+            renderMedicamentosTable();
+            medicamentoModal.classList.remove('flex');
+        });
+
+        function renderMedicamentosTable() {
+            const tableBody = document.getElementById('medicamentos-table-body');
+            if(!tableBody) return;
+            tableBody.innerHTML = '';
+            db.get('medicamentos').forEach(m => {
+                tableBody.insertAdjacentHTML('beforeend', `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-4">${m.nome}</td>
+                        <td class="p-4">${m.dosagem}</td>
+                        <td class="p-4">${m.instrucoes}</td>
+                        <td class="p-4">
+                            <button class="edit-medicamento p-2 text-blue-500 hover:text-blue-700" data-id="${m.id}"><i data-lucide="edit"></i></button>
+                            <button class="delete-medicamento p-2 text-red-500 hover:text-red-700" data-id="${m.id}"><i data-lucide="trash-2"></i></button>
+                        </td>
+                    </tr>`);
+            });
+            lucide.createIcons();
+            document.querySelectorAll('.edit-medicamento').forEach(btn => btn.addEventListener('click', (e) => editMedicamento(e.currentTarget.dataset.id)));
+            document.querySelectorAll('.delete-medicamento').forEach(btn => btn.addEventListener('click', (e) => deleteMedicamento(e.currentTarget.dataset.id)));
+        }
+
+        function editMedicamento(id) {
+            const medicamento = db.get('medicamentos').find(m => m.id === id);
+            if(!medicamento) return;
+            document.getElementById('medicamento-id').value = medicamento.id;
+            document.getElementById('medicamento-nome').value = medicamento.nome;
+            document.getElementById('medicamento-dosagem').value = medicamento.dosagem;
+            document.getElementById('medicamento-instrucoes').value = medicamento.instrucoes;
+            document.getElementById('medicamento-modal-title').textContent = 'Editar Medicamento';
+            medicamentoModal.classList.add('flex');
+        }
+
+        function deleteMedicamento(id) {
+            if(confirm('Tem certeza que deseja excluir este medicamento?')) {
+                let medicamentos = db.get('medicamentos');
+                const medicamento = medicamentos.find(m => m.id === id);
+                if(!medicamento) return;
+                medicamentos = medicamentos.filter(m => m.id !== id);
+                db.set('medicamentos', medicamentos);
+                addLog(db.getSession().email, `Excluiu o medicamento ${medicamento.nome}.`);
+                renderMedicamentosTable();
+            }
+        }
+        
+        const agendamentoModal = document.getElementById('agendamento-modal');
+        document.getElementById('open-agendamento-modal').addEventListener('click', () => {
+            agendamentoForm.reset();
+            document.getElementById('agendamento-id').value = '';
+            populateSelect(document.getElementById('agendamento-paciente'), db.get('pacientes'), 'id', 'nome');
+            populateSelect(document.getElementById('agendamento-medicamento'), db.get('medicamentos'), 'id', 'nome');
+            document.getElementById('agendamento-modal-title').textContent = 'Novo Agendamento';
+            agendamentoModal.classList.add('flex');
+        });
+        document.getElementById('cancel-agendamento-modal').addEventListener('click', () => agendamentoModal.classList.remove('flex'));
+        agendamentoForm.addEventListener('submit', e => {
+            e.preventDefault();
+            const id = document.getElementById('agendamento-id').value;
+            const agendamento = {
+                id: id || `a-${Date.now()}`,
+                pacienteId: document.getElementById('agendamento-paciente').value,
+                medicamentoId: document.getElementById('agendamento-medicamento').value,
+                dateTime: `${document.getElementById('agendamento-data').value}T${document.getElementById('agendamento-hora').value}`,
+                tomado: false
+            };
+            const agendamentos = db.get('agendamentos');
+            if (id) { /* Edição não implementada */ } else {
+                agendamentos.push(agendamento);
+                const paciente = db.get('pacientes').find(p => p.id === agendamento.pacienteId)?.nome;
+                addLog(db.getSession().email, `Criou agendamento para ${paciente}.`);
+            }
+            db.set('agendamentos', agendamentos);
+            renderAgendamentosTable();
+            agendamentoModal.classList.remove('flex');
+        });
+        
+        function renderAgendamentosTable() {
+            const tableBody = document.getElementById('agendamentos-table-body');
+            if(!tableBody) return;
+            const agendamentos = db.get('agendamentos');
+            const pacientes = db.get('pacientes');
+            const medicamentos = db.get('medicamentos');
+            tableBody.innerHTML = '';
+            agendamentos.sort((a,b) => new Date(a.dateTime) - new Date(b.dateTime));
+            agendamentos.forEach(a => {
+                const paciente = pacientes.find(p => p.id === a.pacienteId);
+                const medicamento = medicamentos.find(m => m.id === a.medicamentoId);
+                if(!paciente || !medicamento) return;
+                const dataHora = new Date(a.dateTime);
+                const statusClass = a.tomado ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+                const statusText = a.tomado ? 'Tomado' : 'Pendente';
+                tableBody.insertAdjacentHTML('beforeend', `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-4">${paciente.nome}</td>
+                        <td class="p-4">${medicamento.nome}</td>
+                        <td class="p-4">${dataHora.toLocaleDateString('pt-BR')} ${dataHora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</td>
+                        <td class="p-4"><span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">${statusText}</span></td>
+                        <td class="p-4">
+                            ${!a.tomado ? `<button class="marcar-tomado p-2 text-green-500 hover:text-green-700" data-id="${a.id}" title="Marcar como tomado"><i data-lucide="check-circle-2"></i></button>` : ''}
+                            <button class="delete-agendamento p-2 text-red-500 hover:text-red-700" data-id="${a.id}"><i data-lucide="trash-2"></i></button>
+                        </td>
+                    </tr>`);
+            });
+            lucide.createIcons();
+            document.querySelectorAll('.marcar-tomado').forEach(btn => btn.addEventListener('click', e => marcarComoTomado(e.currentTarget.dataset.id)));
+            document.querySelectorAll('.delete-agendamento').forEach(btn => btn.addEventListener('click', e => deleteAgendamento(e.currentTarget.dataset.id)));
+        }
+        
+        function marcarComoTomado(id) {
+            const agendamentos = db.get('agendamentos');
+            const agendamento = agendamentos.find(a => a.id === id);
+            if(agendamento) {
+                agendamento.tomado = true;
+                db.set('agendamentos', agendamentos);
+                const paciente = db.get('pacientes').find(p => p.id === agendamento.pacienteId)?.nome;
+                addLog(db.getSession().email, `Marcou dose como tomada para ${paciente}.`);
+                renderAllContent();
+            }
+        }
+
+        function deleteAgendamento(id) {
+             if(confirm('Tem certeza que deseja excluir este agendamento?')) {
+                let agendamentos = db.get('agendamentos');
+                agendamentos = agendamentos.filter(a => a.id !== id);
+                db.set('agendamentos', agendamentos);
+                addLog(db.getSession().email, `Excluiu um agendamento.`);
+                renderAllContent();
+            }
+        }
+
+        // ---- Lógica do Painel Admin ----
+        function renderUsersTable() {
+            const tableBody = document.getElementById('users-table-body');
+            if(!tableBody) return;
+            const users = db.get('users');
+            const roles = db.get('roles').map(r => r.name);
+            tableBody.innerHTML = '';
+            users.forEach(user => {
+                const roleOptions = roles.map(role => `<option value="${role}" ${user.role === role ? 'selected' : ''}>${role}</option>`).join('');
+                tableBody.insertAdjacentHTML('beforeend', `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-4">${user.name}</td>
+                        <td class="p-4">${user.email}</td>
+                        <td class="p-4">
+                            <select class="user-role-select bg-gray-100 rounded-lg p-2" data-userid="${user.id}">${roleOptions}</select>
+                        </td>
+                    </tr>`);
+            });
+            document.querySelectorAll('.user-role-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    const userId = e.target.dataset.userid;
+                    const newRole = e.target.value;
+                    const users = db.get('users');
+                    const userToUpdate = users.find(u => u.id === userId);
+                    if(userToUpdate) {
+                        userToUpdate.role = newRole;
+                        db.set('users', users);
+                        addLog(db.getSession().email, `Alterou o cargo de ${userToUpdate.email} para ${newRole}.`);
+                    }
+                });
+            });
+        }
+
+        function renderRolesList() {
+            const list = document.getElementById('roles-list');
+            if(!list) return;
+            list.innerHTML = '';
+            db.get('roles').forEach(role => {
+                list.insertAdjacentHTML('beforeend', `<li class="flex justify-between items-center p-2 bg-gray-50 rounded-lg"><span>${role.name}</span> <button data-id="${role.id}" class="delete-role text-red-500 hover:text-red-700 p-1"><i data-lucide="x"></i></button></li>`);
+            });
+            lucide.createIcons();
+            document.querySelectorAll('.delete-role').forEach(btn => btn.addEventListener('click', e => deleteRole(e.currentTarget.dataset.id)));
+        }
+
+        document.getElementById('add-role-button')?.addEventListener('click', () => {
+            const input = document.getElementById('new-role-name');
+            const roleName = input.value.trim();
+            if(roleName) {
+                const roles = db.get('roles');
+                if (roles.find(r => r.name === roleName)) {
+                    alert('Este cargo já existe.');
+                    return;
+                }
+                roles.push({ id: `role-${Date.now()}`, name: roleName });
+                db.set('roles', roles);
+                let permissions = db.get('permissions');
+                permissions[roleName] = []; // Inicia sem permissões
+                db.set('permissions', permissions);
+
+                addLog(db.getSession().email, `Criou o cargo ${roleName}.`);
+                renderRolesList();
+                input.value = '';
+            }
+        });
+
+        function deleteRole(id) {
+            let roles = db.get('roles');
+            const role = roles.find(r => r.id === id);
+            if(!role) return;
+            if (role.name === 'Admin' || role.name === 'User') {
+                alert('Não é possível excluir os cargos padrão.');
+                return;
+            }
+            if (confirm(`Tem certeza que deseja excluir o cargo "${role.name}"?`)) {
+                roles = roles.filter(r => r.id !== id);
+                db.set('roles', roles);
+                let permissions = db.get('permissions');
+                delete permissions[role.name];
+                db.set('permissions', permissions);
+                addLog(db.getSession().email, `Excluiu o cargo ${role.name}.`);
+                renderRolesList();
+            }
+        }
+        
+        function renderPermissions() {
+            const content = document.getElementById('permissions-content');
+            if (!content) return;
+
+            const roles = db.get('roles').map(r => r.name);
+            const allPermissions = [
+                'dashboard:view',
+                'agendamentos:view', 'agendamentos:create', 'agendamentos:update', 'agendamentos:delete',
+                'pacientes:view', 'pacientes:create', 'pacientes:update', 'pacientes:delete',
+                'medicamentos:view', 'medicamentos:create', 'medicamentos:update', 'medicamentos:delete',
+                'relatorios:view',
+                'admin:view'
+            ];
+            
+            content.innerHTML = `
+                <div class="mb-4">
+                    <label for="role-select-permissions" class="block text-gray-700 mb-2 font-semibold">Selecione um Cargo para Editar</label>
+                    <select id="role-select-permissions" class="w-full p-2 bg-gray-100 rounded-lg border">
+                        ${roles.map(role => `<option value="${role}">${role}</option>`).join('')}
+                    </select>
+                </div>
+                <div id="permissions-list" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+            `;
+            
+            const roleSelect = document.getElementById('role-select-permissions');
+            const permissionsList = document.getElementById('permissions-list');
+            
+            const displayPermissionsForRole = (roleName) => {
+                const permissions = db.get('permissions');
+                const rolePermissions = permissions[roleName] || [];
+
+                if (roleName === 'Admin') {
+                    permissionsList.innerHTML = `<p class="col-span-full text-gray-600">O cargo de Admin tem acesso total e não pode ser editado.</p>`;
+                    return;
+                }
+
+                permissionsList.innerHTML = allPermissions.map(perm => {
+                    const isChecked = rolePermissions.includes(perm);
+                    return `
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" class="permission-checkbox" data-permission="${perm}" ${isChecked ? 'checked' : ''}>
+                            <span>${perm.replace(':', ' - ')}</span>
+                        </label>
+                    `;
+                }).join('');
+
+                document.querySelectorAll('.permission-checkbox').forEach(checkbox => {
+                    checkbox.addEventListener('change', (e) => {
+                        const perm = e.target.dataset.permission;
+                        let permissions = db.get('permissions');
+                        let rolePermissions = permissions[roleName] || [];
+                        if (e.target.checked) {
+                            if (!rolePermissions.includes(perm)) {
+                                rolePermissions.push(perm);
+                            }
+                        } else {
+                            rolePermissions = rolePermissions.filter(p => p !== perm);
+                        }
+                        permissions[roleName] = rolePermissions;
+                        db.set('permissions', permissions);
+                        addLog(db.getSession().email, `Alterou permissões para o cargo ${roleName}.`);
+                    });
+                });
+            };
+
+            roleSelect.addEventListener('change', () => displayPermissionsForRole(roleSelect.value));
+            displayPermissionsForRole(roleSelect.value);
+        }
+
+        function renderLogsTable() {
+            const tableBody = document.getElementById('logs-table-body');
+            if(!tableBody) return;
+            tableBody.innerHTML = '';
+            db.get('logs').forEach(log => {
+                const date = new Date(log.timestamp);
+                tableBody.insertAdjacentHTML('beforeend', `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-4 text-sm text-gray-600">${date.toLocaleString('pt-BR')}</td>
+                        <td class="p-4">${log.user}</td>
+                        <td class="p-4">${log.action}</td>
+                    </tr>`);
+            });
+        }
+
+        // ---- Funções Utilitárias ----
+        function populateSelect(selectElement, data, valueKey, textKey) {
+            if(!selectElement) return;
+            selectElement.innerHTML = '<option value="">Selecione...</option>';
+            data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item[valueKey];
+                option.textContent = item[textKey];
+                selectElement.appendChild(option);
+            });
+        }
+        
+        // ---- Inicialização ----
+        function init() {
+            db.init();
+            const currentUser = db.getSession();
+            if (currentUser) {
+                loadMainApp(currentUser);
+            } else {
+                loadAuthScreen();
+            }
+        }
+        
+        init();
+    });
+    </script>
+</body>
+</html>
+
